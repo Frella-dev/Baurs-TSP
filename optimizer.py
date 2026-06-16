@@ -3,6 +3,11 @@ import math
 
 def haversine(lat1, lon1, lat2, lon2):
 
+    lat1 = float(lat1)
+    lon1 = float(lon1)
+    lat2 = float(lat2)
+    lon2 = float(lon2)
+
     R = 6371
 
     dlat = math.radians(lat2 - lat1)
@@ -28,7 +33,20 @@ def haversine(lat1, lon1, lat2, lon2):
 
 def optimize_route(df, office_lat, office_lon):
 
-    remaining = df.to_dict("records")
+    remaining = []
+
+    for _, row in df.iterrows():
+
+        try:
+
+            remaining.append({
+                **row.to_dict(),
+                "Latitude": float(row["Latitude"]),
+                "Longitude": float(row["Longitude"])
+            })
+
+        except:
+            pass
 
     route = []
 
@@ -82,12 +100,11 @@ def split_daily(route, daily_km=160):
 
             dist = 0
 
-        if distance_today + dist > daily_km:
+        if distance_today + dist > daily_km and len(current_day) > 0:
 
             days.append(current_day)
 
             current_day = []
-
             distance_today = 0
 
         current_day.append(stop)
