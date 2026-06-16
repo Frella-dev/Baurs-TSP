@@ -11,6 +11,7 @@ from optimizer import (
 from map import create_map
 
 
+# Office Location
 OFFICE_LAT = 6.8275814230546725
 OFFICE_LON = 79.95698659415302
 
@@ -33,80 +34,228 @@ visit_stage = st.selectbox(
 
 daily_limit = st.number_input(
     "Daily KM Limit",
+    min_value=10,
     value=160
 )
 
+
 if st.button("Generate Route"):
 
-    df = load_sheet(sheet_url)
+    try:
 
-    if visit_stage == 1:
+        # Load Sheet
+        st.info("Loading sheet...")
 
-        df = df[
-            df["1st Visit"] == "No"
-        ]
+        df = load_sheet(sheet_url)
 
-    elif visit_stage == 2:
+        df.columns = df.columns.str.strip()
 
-        df = df[
-            (df["1st Visit"] == "Yes")
-            &
-            (df["2nd Visit"] == "No")
-        ]
-
-    else:
-
-        df = df[
-            (df["1st Visit"] == "Yes")
-            &
-            (df["2nd Visit"] == "Yes")
-            &
-            (df["3rd Visit"] == "No")
-        ]
-
-    st.success(
-        f"{len(df)} customers found"
-    )
-
-    route = optimize_route(
-        df,
-        OFFICE_LAT,
-        OFFICE_LON
-    )
-
-    days = split_daily(
-        route,
-        daily_limit
-    )
-
-    st.success(
-        f"{len(days)} days required"
-    )
-
-    for day_no, day in enumerate(days, start=1):
-
-        st.subheader(
-            f"Day {day_no}"
+        st.success(
+            f"Total Rows Loaded: {len(df)}"
         )
 
-        day_df = pd.DataFrame(day)
+        # Validate Columns
+        required_columns = [
+            "Customer name",
+            "Latitude",
+            "Longitude",
+            "1st Visit",
+            "2nd Visit",
+            "3rd Visit"
+        ]
 
-        st.dataframe(
-            day_df[
-                [
+        missing = [
+            col for col in required_columns
+            if col not in df.columns
+        ]
+
+        if missing:
+
+            st.error(
+                f"Missing Columns: {missing}"
+            )
+
+            st.stop()
+
+        # Filter Visit Stage
+        if visit_stage == 1:
+
+            df = df[
+                df["1st Visit"]
+                .astype(str)
+                .str.strip()
+                .str.upper()
+                == "NO"
+            ]
+
+        elif visit_stage == 2:
+
+            df = df[
+                (
+                    df["1st Visit"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                    == "YES"
+                )
+                &
+                (
+                    df["2nd Visit"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                    == "NO"
+                )
+            ]
+
+        else:
+
+            df = df[
+                (
+                    df["1st Visit"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                    == "YES"
+                )
+                &
+                (
+                    df["2nd Visit"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                    == "YES"
+                )
+                &
+                (
+                    df["3rd Visit"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                    == "NO"
+                )
+            ]
+
+        st.success(
+            f"Rows After Filter: {len(df)}"
+        )
+
+        if len(df) == 0:
+
+            st.warning(
+                "No customers found for selected visit stage."
+            )
+
+            st.stop()
+
+        # Remove Invalid Coordinates
+        df = df.dropna(
+            subset=[
+                "Latitude",
+                "Longitude"
+            ]
+        )
+
+        df["Latitude"] = pd.to_numeric(
+            df["Latitude"],
+            errors="coerce"
+        )
+
+        df["Longitude"] = pd.to_numeric(
+            df["Longitude"],
+            errors="coerce"
+        )
+
+        df = df.dropna(
+            subset=[
+                "Latitude",
+                "Longitude"
+            ]
+        )
+
+        st.success(
+            f"Valid Coordinates: {len(df)}"
+        )
+
+        # Optimize Route
+        st.info(
+            "Optimizing route..."
+        )
+
+        route = optimize_route(
+            df,
+            OFFICE_LAT,
+            OFFICE_LON
+        )
+
+        st.success(
+            f"Optimized Stops: {len(route)}"
+        )
+
+        # Split Into Daily Routes
+        days = split_daily(
+            route,
+            daily_limit
+        )
+
+        st.success(
+            f"Days Required: {len(days)}"
+        )
+
+        # Show Daily Tables
+        for day_no, day in enumerate(
+            days,
+            start=1
+        ):
+
+            st.subheader(
+                f"Day {day_no}"
+            )
+
+            day_df = pd.DataFrame(day)
+
+            columns_to_show = [
+                c for c in [
                     "Customer name",
                     "Town",
                     "Latitude",
                     "Longitude"
                 ]
-            ],
-            use_container_width=True
+                if c in day_df.columns
+            ]
+
+            st.dataframe(
+                day_df[
+                    columns_to_show
+                ],
+                use_container_width=True
+            )
+
+        # Create Map
+        st.info(
+            "Creating map..."
         )
 
-    m = create_map(days)
+        m = create_map(days)
 
-    st_folium(
-        m,
-        width=1400,
-        height=700
-    )
+        st_folium(
+            m,
+            width=1400,
+            height=700
+        )
+
+        st.success(
+            "Route generated successfully."
+        )
+
+    except Exception as e:
+
+        import traceback
+
+        st.error(
+            f"ERROR:\n{str(e)}"
+        )
+
+        st.code(
+            traceback.format_exc()
+        )
