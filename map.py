@@ -1,33 +1,37 @@
 import folium
 
 
-def create_map(route_df):
+def create_map(days):
 
-    center_lat = route_df.iloc[0]["Latitude"]
-    center_lon = route_df.iloc[0]["Longitude"]
+    first = days[0][0]
 
     m = folium.Map(
-        location=[center_lat, center_lon],
+        location=[
+            first["Latitude"],
+            first["Longitude"]
+        ],
         zoom_start=8
     )
 
-    coords = []
+    for day_no, day in enumerate(days, start=1):
 
-    for i, row in route_df.iterrows():
+        coords = []
 
-        lat = row["Latitude"]
-        lon = row["Longitude"]
+        for idx, stop in enumerate(day, start=1):
 
-        coords.append([lat, lon])
+            lat = stop["Latitude"]
+            lon = stop["Longitude"]
 
-        folium.Marker(
-            [lat, lon],
-            popup=f"{i+1}. {row['Customer name']}"
+            coords.append([lat, lon])
+
+            folium.Marker(
+                [lat, lon],
+                popup=f"Day {day_no} - {idx}. {stop['Customer name']}"
+            ).add_to(m)
+
+        folium.PolyLine(
+            coords,
+            weight=4
         ).add_to(m)
-
-    folium.PolyLine(
-        coords,
-        weight=5
-    ).add_to(m)
 
     return m
