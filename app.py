@@ -72,6 +72,11 @@ if st.button("Generate Route"):
             row["Latitude"]
         ])
 
+      st.write(
+        "Locations Found:",
+        len(locations)
+    )
+    
     matrix = build_matrix(
         locations,
         ors_key
