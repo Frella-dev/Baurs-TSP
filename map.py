@@ -1,51 +1,52 @@
 import folium
 
 
-def create_map(days):
+def create_day_map(day, office_lat, office_lon):
 
-    if not days:
+    if len(day) == 0:
         return folium.Map(
-            location=[7.5, 80.7],
-            zoom_start=7
+            location=[office_lat, office_lon],
+            zoom_start=8
         )
 
-    first = days[0][0]
+    first = day[0]
 
     m = folium.Map(
         location=[
-            float(first["Latitude"]),
-            float(first["Longitude"])
+            first["Latitude"],
+            first["Longitude"]
         ],
-        zoom_start=8
+        zoom_start=9
     )
 
-    for day_no, day in enumerate(days, start=1):
+    coords = []
 
-        coords = []
+    folium.Marker(
+        [office_lat, office_lon],
+        popup="Office",
+        tooltip="Office"
+    ).add_to(m)
 
-        for idx, stop in enumerate(day, start=1):
+    coords.append(
+        [office_lat, office_lon]
+    )
 
-            lat = float(stop["Latitude"])
-            lon = float(stop["Longitude"])
+    for idx, stop in enumerate(day, start=1):
 
-            coords.append([lat, lon])
+        lat = float(stop["Latitude"])
+        lon = float(stop["Longitude"])
 
-            folium.Marker(
-                [lat, lon],
-                popup=f"Day {day_no} - {idx}",
-                tooltip=str(
-                    stop.get(
-                        "Customer name",
-                        "Customer"
-                    )
-                )
-            ).add_to(m)
+        coords.append([lat, lon])
 
-        if len(coords) > 1:
+        folium.Marker(
+            [lat, lon],
+            popup=f"{idx}. {stop['Customer name']}",
+            tooltip=f"{idx}. {stop['Customer name']}"
+        ).add_to(m)
 
-            folium.PolyLine(
-                coords,
-                weight=4
-            ).add_to(m)
+    folium.PolyLine(
+        coords,
+        weight=5
+    ).add_to(m)
 
     return m
