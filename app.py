@@ -4,9 +4,15 @@ import pandas as pd
 from streamlit_folium import st_folium
 
 from sheets import load_sheet
-from ors import build_matrix
-from optimizer import optimize_route
+from optimizer import (
+    optimize_route,
+    split_daily
+)
 from map import create_map
+
+
+OFFICE_LAT = 6.8275814230546725
+OFFICE_LON = 79.95698659415302
 
 
 st.set_page_config(
@@ -20,120 +26,73 @@ sheet_url = st.text_input(
     "Google Sheet URL"
 )
 
-ors_key = st.text_input(
-    "OpenRouteService Key",
-    type="password"
-)
-
 visit_stage = st.selectbox(
     "Visit Stage",
     [1, 2, 3]
 )
 
+daily_limit = st.number_input(
+    "Daily KM Limit",
+    value=160
+)
 
 if st.button("Generate Route"):
 
-    try:
+    df = load_sheet(sheet_url)
 
-        # Load Sheet
-        df = load_sheet(sheet_url)
+    if visit_stage == 1:
 
-        st.write(
-            "Total Rows Loaded:",
-            len(df)
-        )
-
-        # Filter Visit Stage
-        if visit_stage == 1:
-
-            df = df[
-                df["1st Visit"] == "No"
-            ]
-
-        elif visit_stage == 2:
-
-            df = df[
-                (df["1st Visit"] == "Yes")
-                &
-                (df["2nd Visit"] == "No")
-            ]
-
-        else:
-
-            df = df[
-                (df["1st Visit"] == "Yes")
-                &
-                (df["2nd Visit"] == "Yes")
-                &
-                (df["3rd Visit"] == "No")
-            ]
-
-        st.write(
-            "Rows After Filter:",
-            len(df)
-        )
-
-        if len(df) == 0:
-
-            st.warning(
-                "No customers found"
-            )
-
-            st.stop()
-
-        # Office Start Point
-        office_lat = 6.8275814230546725
-        office_lon = 79.95698659415302
-
-        locations = [
-            [office_lon, office_lat]
+        df = df[
+            df["1st Visit"] == "No"
         ]
 
-        for _, row in df.iterrows():
+    elif visit_stage == 2:
 
-            locations.append([
-                float(row["Longitude"]),
-                float(row["Latitude"])
-            ])
+        df = df[
+            (df["1st Visit"] == "Yes")
+            &
+            (df["2nd Visit"] == "No")
+        ]
 
-        st.write(
-            "Locations Sent To ORS:",
-            len(locations)
-        )
+    else:
 
-        # Build Matrix
-        matrix = build_matrix(
-            locations,
-            ors_key
-        )
+        df = df[
+            (df["1st Visit"] == "Yes")
+            &
+            (df["2nd Visit"] == "Yes")
+            &
+            (df["3rd Visit"] == "No")
+        ]
 
-        st.success(
-            "Distance Matrix Created"
-        )
+    st.success(
+        f"{len(df)} customers found"
+    )
 
-        # Optimize Route
-        route = optimize_route(
-            matrix
-        )
+    route = optimize_route(
+        df,
+        OFFICE_LAT,
+        OFFICE_LON
+    )
 
-        rows = []
+    days = split_daily(
+        route,
+        daily_limit
+    )
 
-        for idx in route[1:]:
+    st.success(
+        f"{len(days)} days required"
+    )
 
-            rows.append(
-                df.iloc[idx - 1]
-            )
-
-        route_df = pd.DataFrame(
-            rows
-        )
+    for day_no, day in enumerate(days, start=1):
 
         st.subheader(
-            "Optimized Route"
+            f"Day {day_no}"
         )
 
+        day_df = pd.DataFrame(day)
+
         st.dataframe(
-            route_df[
+            day_df[
                 [
                     "Customer name",
                     "Town",
@@ -144,19 +103,10 @@ if st.button("Generate Route"):
             use_container_width=True
         )
 
-        # Map
-        m = create_map(
-            route_df
-        )
+    m = create_map(days)
 
-        st_folium(
-            m,
-            width=1400,
-            height=700
-        )
-
-    except Exception as e:
-
-        st.error(
-            f"ERROR:\n{str(e)}"
-        )
+    st_folium(
+        m,
+        width=1400,
+        height=700
+    )
