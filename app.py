@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import pandas as pd
 
@@ -19,6 +20,14 @@ st.set_page_config(
 
 st.title("Sales Route Planner")
 
+
+if "days" not in st.session_state:
+    st.session_state.days = None
+
+if "generated" not in st.session_state:
+    st.session_state.generated = False
+
+
 sheet_url = st.text_input(
     "Google Sheet URL"
 )
@@ -34,46 +43,16 @@ daily_limit = st.number_input(
     value=160
 )
 
+
 if st.button("Generate Route"):
 
     try:
 
-        st.info("Loading Google Sheet...")
+        st.info("Loading Sheet...")
 
         df = load_sheet(sheet_url)
 
-        st.write(
-            "Total Rows Loaded:",
-            len(df)
-        )
-
         df.columns = df.columns.str.strip()
-
-        required_columns = [
-            "Customer name",
-            "Latitude",
-            "Longitude",
-            "1st Visit",
-            "2nd Visit",
-            "3rd Visit"
-        ]
-
-        missing = [
-            c for c in required_columns
-            if c not in df.columns
-        ]
-
-        if missing:
-
-            st.error(
-                f"Missing Columns: {missing}"
-            )
-
-            st.stop()
-
-        # -------------------------
-        # Visit Stage Filter
-        # -------------------------
 
         if visit_stage == 1:
 
@@ -133,22 +112,6 @@ if st.button("Generate Route"):
                 )
             ]
 
-        st.success(
-            f"Rows After Filter: {len(df)}"
-        )
-
-        if len(df) == 0:
-
-            st.warning(
-                "No customers found."
-            )
-
-            st.stop()
-
-        # -------------------------
-        # Coordinate Cleanup
-        # -------------------------
-
         df["Latitude"] = pd.to_numeric(
             df["Latitude"],
             errors="coerce"
@@ -166,100 +129,83 @@ if st.button("Generate Route"):
             ]
         )
 
-        st.success(
-            f"Valid Coordinates: {len(df)}"
-        )
-
-        # -------------------------
-        # Route Optimization
-        # -------------------------
-
-        st.info(
-            "Optimizing route..."
-        )
-
         route = optimize_route(
             df,
             OFFICE_LAT,
             OFFICE_LON
         )
 
-        st.success(
-            f"Optimized Stops: {len(route)}"
-        )
-
-        # -------------------------
-        # Daily Split
-        # -------------------------
-
         days = split_daily(
             route,
             daily_limit
         )
 
-        st.success(
-            f"Days Required: {len(days)}"
-        )
-
-        # -------------------------
-        # Day Views
-        # -------------------------
-
-        for day_no, day in enumerate(
-            days,
-            start=1
-        ):
-
-            st.subheader(
-                f"Day {day_no}"
-            )
-
-            day_df = pd.DataFrame(day)
-
-            display_cols = [
-                c for c in [
-                    "Customer name",
-                    "Town",
-                    "Latitude",
-                    "Longitude"
-                ]
-                if c in day_df.columns
-            ]
-
-            st.dataframe(
-                day_df[display_cols],
-                use_container_width=True
-            )
-
-            with st.expander(
-                f"View Map - Day {day_no}"
-            ):
-
-                day_map = create_day_map(
-                    day,
-                    OFFICE_LAT,
-                    OFFICE_LON
-                )
-
-                st_folium(
-                    day_map,
-                    width=1200,
-                    height=700,
-                    key=f"map_{day_no}"
-                )
+        st.session_state.days = days
+        st.session_state.generated = True
 
         st.success(
-            "Route Generated Successfully"
+            f"{len(days)} day(s) generated"
         )
 
     except Exception as e:
 
         import traceback
 
-        st.error(
-            f"ERROR: {str(e)}"
-        )
+        st.error(str(e))
 
         st.code(
             traceback.format_exc()
         )
+
+
+if st.session_state.generated:
+
+    days = st.session_state.days
+
+    st.success(
+        f"Days Required: {len(days)}"
+    )
+
+    for day_no, day in enumerate(days, start=1):
+
+        st.subheader(
+            f"Day {day_no}"
+        )
+
+        day_df = pd.DataFrame(day)
+
+        cols = [
+            c for c in [
+                "Customer name",
+                "Town",
+                "Latitude",
+                "Longitude"
+            ]
+            if c in day_df.columns
+        ]
+
+        st.dataframe(
+            day_df[cols],
+            use_container_width=True
+        )
+
+        show_map = st.checkbox(
+            f"Show Map Day {day_no}",
+            key=f"map_checkbox_{day_no}"
+        )
+
+        if show_map:
+
+            day_map = create_day_map(
+                day,
+                OFFICE_LAT,
+                OFFICE_LON
+            )
+
+            st_folium(
+                day_map,
+                width=1200,
+                height=700,
+                key=f"folium_day_{day_no}"
+            )
+```
