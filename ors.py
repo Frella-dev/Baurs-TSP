@@ -21,6 +21,12 @@ def build_matrix(coords, api_key):
         timeout=120
     )
 
-    response.raise_for_status()
+    print(response.status_code)
+    print(response.text)
+
+    if response.status_code != 200:
+        raise Exception(
+            f"ORS Error {response.status_code}\n{response.text}"
+        )
 
     return response.json()["distances"]
