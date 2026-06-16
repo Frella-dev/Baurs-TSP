@@ -1,4 +1,4 @@
-```python
+
 import streamlit as st
 import pandas as pd
 
@@ -208,4 +208,4 @@ if st.session_state.generated:
                 height=700,
                 key=f"folium_day_{day_no}"
             )
-```
+
