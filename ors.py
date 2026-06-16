@@ -1,10 +1,11 @@
 import requests
 
+
 def build_matrix(coords, api_key):
 
     url = "https://api.openrouteservice.org/v2/matrix/driving-car"
 
-    body = {
+    payload = {
         "locations": coords,
         "metrics": ["distance"]
     }
@@ -16,17 +17,39 @@ def build_matrix(coords, api_key):
 
     response = requests.post(
         url,
-        json=body,
+        json=payload,
         headers=headers,
         timeout=120
     )
 
-    print(response.status_code)
-    print(response.text)
+    print("STATUS:", response.status_code)
+    print("BODY:", response.text)
 
     if response.status_code != 200:
+
         raise Exception(
-            f"ORS Error {response.status_code}\n{response.text}"
+            f"""
+ORS ERROR
+
+Status:
+{response.status_code}
+
+Response:
+{response.text}
+"""
         )
 
-    return response.json()["distances"]
+    data = response.json()
+
+    if "distances" not in data:
+
+        raise Exception(
+            f"""
+No distances returned.
+
+Response:
+{response.text}
+"""
+        )
+
+    return data["distances"]
