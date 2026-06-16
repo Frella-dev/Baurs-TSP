@@ -30,89 +30,133 @@ visit_stage = st.selectbox(
     [1, 2, 3]
 )
 
+
 if st.button("Generate Route"):
 
-    df = load_sheet(sheet_url)
+    try:
 
-    if visit_stage == 1:
+        # Load Sheet
+        df = load_sheet(sheet_url)
 
-        df = df[
-            df["1st Visit"] == "No"
-        ]
-
-    elif visit_stage == 2:
-
-        df = df[
-            (df["1st Visit"] == "Yes")
-            &
-            (df["2nd Visit"] == "No")
-        ]
-
-    else:
-
-        df = df[
-            (df["1st Visit"] == "Yes")
-            &
-            (df["2nd Visit"] == "Yes")
-            &
-            (df["3rd Visit"] == "No")
-        ]
-
-    office_lat = 6.8275814230546725
-    office_lon = 79.95698659415302
-
-    locations = [
-        [office_lon, office_lat]
-    ]
-
-    for _, row in df.iterrows():
-
-        locations.append([
-            row["Longitude"],
-            row["Latitude"]
-        ])
-
-      st.write(
-        "Locations Found:",
-        len(locations)
-    )
-    
-    matrix = build_matrix(
-        locations,
-        ors_key
-    )
-
-    route = optimize_route(matrix)
-
-    rows = []
-
-    for idx in route[1:]:
-
-        rows.append(
-            df.iloc[idx - 1]
+        st.write(
+            "Total Rows Loaded:",
+            len(df)
         )
 
-    route_df = pd.DataFrame(rows)
+        # Filter Visit Stage
+        if visit_stage == 1:
 
-    st.subheader(
-        "Optimized Route"
-    )
-
-    st.dataframe(
-        route_df[
-            [
-                "Customer name",
-                "Town",
-                "Latitude",
-                "Longitude"
+            df = df[
+                df["1st Visit"] == "No"
             ]
+
+        elif visit_stage == 2:
+
+            df = df[
+                (df["1st Visit"] == "Yes")
+                &
+                (df["2nd Visit"] == "No")
+            ]
+
+        else:
+
+            df = df[
+                (df["1st Visit"] == "Yes")
+                &
+                (df["2nd Visit"] == "Yes")
+                &
+                (df["3rd Visit"] == "No")
+            ]
+
+        st.write(
+            "Rows After Filter:",
+            len(df)
+        )
+
+        if len(df) == 0:
+
+            st.warning(
+                "No customers found"
+            )
+
+            st.stop()
+
+        # Office Start Point
+        office_lat = 6.8275814230546725
+        office_lon = 79.95698659415302
+
+        locations = [
+            [office_lon, office_lat]
         ]
-    )
 
-    m = create_map(route_df)
+        for _, row in df.iterrows():
 
-    st_folium(
-        m,
-        width=1400,
-        height=700
-    )
+            locations.append([
+                float(row["Longitude"]),
+                float(row["Latitude"])
+            ])
+
+        st.write(
+            "Locations Sent To ORS:",
+            len(locations)
+        )
+
+        # Build Matrix
+        matrix = build_matrix(
+            locations,
+            ors_key
+        )
+
+        st.success(
+            "Distance Matrix Created"
+        )
+
+        # Optimize Route
+        route = optimize_route(
+            matrix
+        )
+
+        rows = []
+
+        for idx in route[1:]:
+
+            rows.append(
+                df.iloc[idx - 1]
+            )
+
+        route_df = pd.DataFrame(
+            rows
+        )
+
+        st.subheader(
+            "Optimized Route"
+        )
+
+        st.dataframe(
+            route_df[
+                [
+                    "Customer name",
+                    "Town",
+                    "Latitude",
+                    "Longitude"
+                ]
+            ],
+            use_container_width=True
+        )
+
+        # Map
+        m = create_map(
+            route_df
+        )
+
+        st_folium(
+            m,
+            width=1400,
+            height=700
+        )
+
+    except Exception as e:
+
+        st.error(
+            f"ERROR:\n{str(e)}"
+        )
